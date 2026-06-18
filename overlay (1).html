@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Overlay</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+html, body {
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: transparent;
+}
+
+#wrap {
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+}
+
+/* Tu PNG completo como base */
+#base {
+  position: absolute;
+  top: 0; left: 0;
+  width: 1920px;
+  height: 1080px;
+  pointer-events: none;
+  user-select: none;
+}
+
+/*
+  GOL LOCAL — zona dorada x=700–870, centro x=785, y=435–565 centro y=500
+  Número centrado en esa franja dorada
+*/
+#gol-home {
+  position: absolute;
+  left: 700px;
+  top: 441px;
+  width: 170px;
+  height: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Arial Black', 'Arial', sans-serif;
+  font-size: 110px;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow:
+    0 0 12px rgba(0,0,0,0.95),
+    0 2px 4px rgba(0,0,0,0.9);
+  transition: transform 0.18s cubic-bezier(.34,1.56,.64,1);
+}
+
+/*
+  GOL VISITANTE — zona dorada x=1050–1220, centro x=1135, y=435–565
+*/
+#gol-away {
+  position: absolute;
+  left: 1050px;
+  top: 441px;
+  width: 170px;
+  height: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Arial Black', 'Arial', sans-serif;
+  font-size: 110px;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow:
+    0 0 12px rgba(0,0,0,0.95),
+    0 2px 4px rgba(0,0,0,0.9);
+  transition: transform 0.18s cubic-bezier(.34,1.56,.64,1);
+}
+
+/*
+  MINUTO — caja gris debajo del trofeo, x=920–990, y=588–612
+  Centro x=960, y=600
+*/
+#minuto {
+  position: absolute;
+  left: 820px;
+  top: 691px;
+  width: 280px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Arial Black', 'Arial', sans-serif;
+  font-size: 64px;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+  line-height: 1;
+}
+
+/* Punto rojo parpadeante cuando está en vivo */
+#live-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #cc0000;
+  box-shadow: 0 0 6px #cc0000;
+  margin-right: 5px;
+  flex-shrink: 0;
+  animation: livepulse 1.1s ease-in-out infinite;
+}
+@keyframes livepulse {
+  0%,100% { opacity:1; }
+  50% { opacity:0.1; }
+}
+.hidden { display:none !important; }
+
+/* Animación de gol */
+.pop { animation: popkick 0.3s cubic-bezier(.34,1.56,.64,1); }
+@keyframes popkick {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.5); }
+  100% { transform: scale(1); }
+}
+</style>
+</head>
+<body>
+<div id="wrap">
+
+  <!-- TU PNG — exactamente como lo hiciste -->
+  <img id="base" src="scoreboard.png" alt="">
+
+  <!-- GOLES -->
+  <div id="gol-home">0</div>
+  <div id="gol-away">0</div>
+
+  <!-- MINUTO -->
+  <div id="minuto">
+    <div id="live-dot" class="hidden"></div>
+    <span id="min-text">PRE</span>
+  </div>
+
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+// ══════════════════════════════════════════
+//  PEGÁ TU CONFIG DE FIREBASE AQUÍ ABAJO
+// ══════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyBQ-iopFYkLlLNhg696EFPGFh6__Bpk-1Q",
+  authDomain: "marcador-mundial-3a121.firebaseapp.com",
+  databaseURL: "https://marcador-mundial-3a121-default-rtdb.firebaseio.com",
+  projectId: "marcador-mundial-3a121",
+  storageBucket: "marcador-mundial-3a121.firebasestorage.app",
+  messagingSenderId: "869567361630",
+  appId: "1:869567361630:web:8cd0de7cccf59b4d603acf"
+};
+// ══════════════════════════════════════════
+
+firebase.initializeApp(firebaseConfig);
+const ref = firebase.database().ref('marcador');
+
+const elHome = document.getElementById('gol-home');
+const elAway = document.getElementById('gol-away');
+const elMin  = document.getElementById('min-text');
+const elDot  = document.getElementById('live-dot');
+
+let prevHome = null, prevAway = null;
+
+function popEl(el) {
+  el.classList.remove('pop');
+  void el.offsetWidth;
+  el.classList.add('pop');
+  setTimeout(() => el.classList.remove('pop'), 320);
+}
+
+ref.on('value', snap => {
+  const s = snap.val();
+  if (!s) return;
+
+  // Goles con animación al cambiar
+  if (prevHome !== null && s.home !== prevHome) popEl(elHome);
+  if (prevAway !== null && s.away !== prevAway) popEl(elAway);
+  prevHome = s.home;
+  prevAway = s.away;
+
+  elHome.textContent = s.home ?? 0;
+  elAway.textContent = s.away ?? 0;
+
+  // Minuto
+  const min   = s.minute ?? 0;
+  const extra = s.extra  ?? 0;
+  const live  = s.running && !s.halftime && !s.fulltime;
+
+  if (s.fulltime) {
+    elMin.textContent = 'FT';
+    elDot.classList.add('hidden');
+  } else if (s.halftime) {
+    elMin.textContent = 'HT';
+    elDot.classList.add('hidden');
+  } else if (!s.running && min === 0) {
+    elMin.textContent = 'PRE';
+    elDot.classList.add('hidden');
+  } else {
+    elMin.textContent = extra > 0 ? `${min}+${extra}'` : `${min}'`;
+    elDot.classList.toggle('hidden', !live);
+  }
+});
+</script>
+</body>
+</html>
